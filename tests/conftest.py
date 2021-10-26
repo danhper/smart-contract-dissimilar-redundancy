@@ -32,8 +32,13 @@ def proxy_trivial_token_v(admin, proxy_trivial_token_v_raw, interface):
 
 
 @pytest.fixture
-def proxy_trivial_token_s(admin, trivial_token_s, Proxy, interface):
+def proxy_trivial_token_s_raw(admin, trivial_token_s, Proxy):
     data = trivial_token_s.initialize.encode_input(INITIAL_SUPPLY)
     deployed = admin.deploy(Proxy)
-    deployed.addImplementation(trivial_token_s, data)
-    return interface.IERC20(deployed, owner=admin)
+    deployed.addImplementation(trivial_token_s.address, data)
+    return deployed
+
+
+@pytest.fixture
+def proxy_trivial_token_s(admin, proxy_trivial_token_s_raw, interface):
+    return interface.IERC20(proxy_trivial_token_s_raw, owner=admin)

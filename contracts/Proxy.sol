@@ -67,7 +67,14 @@ contract Proxy {
         address _implementation,
         bytes memory data,
         CheckCall[] memory checks
-    ) external returns (bytes memory) {
+    )
+        external
+        returns (
+            bool,
+            bytes memory,
+            bytes32
+        )
+    {
         (bool success, bytes memory returnData) = address(this).delegatecall(
             abi.encodeWithSignature(
                 "delegateAndCheck(address,bytes,(address,bytes)[],bool)",
@@ -78,7 +85,18 @@ contract Proxy {
             )
         );
         require(!success, "should have failed");
-        return returnData;
+
+        assembly {
+            returnData := add(returnData, 4) // drop signature
+        }
+
+        (
+            bool delegatedSuccess,
+            bytes memory delegatedreturnData,
+            bytes32 checksHash
+        ) = abi.decode(returnData, (bool, bytes, bytes32));
+
+        return (delegatedSuccess, delegatedreturnData, checksHash);
     }
 
     /**
