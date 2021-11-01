@@ -103,7 +103,9 @@ contract Proxy {
         bytes32 checksHash;
 
         // FIXME: might be a simpler way with abi.decode or so
-        bytes4 sig = (msg.data[0] << 24) | (msg.data[1] << 16) | (msg.data[2] << 8) | msg.data[3];
+        bytes4 sig;
+        for (uint256 i = 0; i < 4; i++)
+            sig |= bytes4(uint32(uint8(msg.data[i])) << uint8(24 - i * 8));
         require(sig > 0, "signature parse failed");
 
         CheckCall[] memory checks = functionsChecks[sig];
