@@ -1,19 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-// NOTE: take from Openzeppelin Proxy contract
+// NOTE: taken from Openzeppelin Proxy contract
 
 pragma solidity ^0.8.0;
 
-/**
- * @dev This abstract contract provides a fallback function that delegates all calls to another contract using the EVM
- * instruction `delegatecall`. We refer to the second contract as the _implementation_ behind the proxy, and it has to
- * be specified by overriding the virtual {_implementation} function.
- *
- * Additionally, delegation to the implementation can be triggered manually through the {_fallback} function, or to a
- * different contract through the {_delegate} function.
- *
- * The success and return data of the delegated call will be returned back to the caller of the proxy.
- */
 contract Proxy {
     struct CheckCall {
         address targetContract;
@@ -24,9 +14,7 @@ contract Proxy {
 
     error RevertDelegation(bool success, bytes revertData, bytes32 checksHash);
 
-    function addImplementation(address implementation, bytes memory data)
-        public
-    {
+    function addImplementation(address implementation, bytes memory data) public {
         (bool success, ) = implementation.delegatecall(data);
         require(success, "initial data call failed");
         implementations.push(implementation);
@@ -49,12 +37,10 @@ contract Proxy {
         checksHash = keccak256(abi.encodePacked(success, returnData));
         for (uint256 i = 0; i < checks.length; i++) {
             CheckCall memory checkCall = checks[i];
-            (bool checkSuccess, bytes memory checkData) = checkCall
-                .targetContract
-                .call(checkCall.data);
-            checksHash = keccak256(
-                abi.encodePacked(checksHash, checkSuccess, checkData)
+            (bool checkSuccess, bytes memory checkData) = checkCall.targetContract.call(
+                checkCall.data
             );
+            checksHash = keccak256(abi.encodePacked(checksHash, checkSuccess, checkData));
         }
         if (revertExecution) {
             revert RevertDelegation(success, returnData, checksHash);
@@ -85,64 +71,115 @@ contract Proxy {
             )
         );
         require(!success, "should have failed");
-
-        assembly {
-            returnData := add(returnData, 4) // drop signature
-        }
-
-        (
-            bool delegatedSuccess,
-            bytes memory delegatedreturnData,
-            bytes32 checksHash
-        ) = abi.decode(returnData, (bool, bytes, bytes32));
-
-        return (delegatedSuccess, delegatedreturnData, checksHash);
+        return _parseDelegatedCall(success, returnData);
     }
 
     /**
-     * @dev Delegates the current call to `implementation`.
-     *
-     * This function does not return to its internall call site, it will return directly to the external caller.
-     */
-    function _delegate(address _implementation) internal virtual {
-        assembly {
-            // Copy msg.data. We take full control of memory in this inline assembly
-            // block because it will not return to Solidity code. We overwrite the
-            // Solidity scratch pad at memory position 0.
-            calldatacopy(0, 0, calldatasize())
-
-            // Call the implementation.
-            // out and outsize are 0 because we don't know the size yet.
-            let result := delegatecall(
-                gas(),
-                _implementation,
-                0,
-                calldatasize(),
-                0,
-                0
-            )
-
-            // Copy the returned data.
-            returndatacopy(0, 0, returndatasize())
-
-            switch result
-            // delegatecall returns 0 on error.
-            case 0 {
-                revert(0, returndatasize())
-            }
-            default {
-                return(0, returndatasize())
-            }
-        }
-    }
-
-    /**
-     * @dev Delegates the current call to the address returned by `_implementation()`.
+     * @dev Delegates the current call to all registered implementations
+     * and persists state only on the last call
+     * If any of the implementation is inconsistent, this reverts
      *
      * This function does not return to its internall call site, it will return directly to the external caller.
      */
     function _fallback() internal virtual {
-        _delegate(implementations[0]);
+        uint256 len = implementations.length;
+        bool success;
+        bytes memory returnData;
+        bytes32 checksHash;
+
+        // TODO: get checks
+        CheckCall[] memory checks = new CheckCall[](0);
+
+        for (uint256 i = 0; i < len; i++) {
+            address implementation = implementations[i];
+            bool shouldRevert = i != len - 1;
+            (bool delegateSuccess, bytes memory delegateData) = address(this).delegatecall(
+                abi.encodeWithSignature(
+                    "delegateAndCheck(address,bytes,(address,bytes)[],bool)",
+                    implementation,
+                    msg.data,
+                    checks,
+                    shouldRevert
+                )
+            );
+            require(delegateSuccess != shouldRevert, "inconsistent return from delegate");
+
+            (bool callSuccess, bytes memory callData, bytes32 callChecksHash) = _parseDelegatedCall(
+                delegateSuccess,
+                delegateData
+            );
+
+            if (i == 0) {
+                success = callSuccess;
+                returnData = callData;
+                checksHash = callChecksHash;
+                continue;
+            }
+
+            require(success == callSuccess, "all implementations must return the same success");
+            require(
+                _bytesEq(returnData, callData),
+                "all implementations must return the same return data"
+            );
+            require(
+                checksHash == callChecksHash,
+                "all implementations must return the same checks"
+            );
+        }
+
+        uint256 returnDataSize = returnData.length;
+
+        assembly {
+            // Copy the return data to the Solidity scratch pad.
+            if iszero(call(gas(), 0x04, 0, add(returnData, 0x20), returnDataSize, 0, 0)) {
+                invalid()
+            }
+            returndatacopy(0, 0, returnDataSize)
+
+            switch success
+            case 0 {
+                revert(0, returnDataSize)
+            }
+            default {
+                return(0, returnDataSize)
+            }
+        }
+    }
+
+    function _bytesEq(bytes memory a, bytes memory b) internal pure returns (bool) {
+        uint256 len = a.length;
+        if (len != b.length) {
+            return false;
+        }
+        for (uint256 i = 0; i < len; i++) {
+            if (a[i] != b[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function _parseDelegatedCall(bool success, bytes memory returnData)
+        internal
+        pure
+        returns (
+            bool,
+            bytes memory,
+            bytes32
+        )
+    {
+        if (!success) {
+            assembly {
+                returnData := add(returnData, 4) // drop signature
+            }
+        }
+
+        (bool delegatedSuccess, bytes memory delegatedreturnData, bytes32 checksHash) = abi.decode(
+            returnData,
+            (bool, bytes, bytes32)
+        );
+
+        return (delegatedSuccess, delegatedreturnData, checksHash);
     }
 
     /**
