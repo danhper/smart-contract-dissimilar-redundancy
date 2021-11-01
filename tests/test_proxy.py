@@ -63,3 +63,17 @@ def test_delegate_and_check(
         proxy_trivial_token_s.balanceOf(accounts[0])
         == INITIAL_SUPPLY - TRANSFERED_AMOUNT
     )
+
+
+def test_register_checks(
+    accounts, TrivialTokenV, proxy_trivial_token_v, proxy_trivial_token_v_raw
+):
+    signature = TrivialTokenV.signatures["transfer"]
+    assert len(proxy_trivial_token_v_raw.getChecks(signature)) == 0
+    proxy_trivial_token_v_raw.registerCheck(
+        signature,
+        proxy_trivial_token_v_raw.address,
+        proxy_trivial_token_v.totalSupply.encode_input(),
+        {"from": accounts[0]},
+    )
+    assert len(proxy_trivial_token_v_raw.getChecks(signature)) == 1

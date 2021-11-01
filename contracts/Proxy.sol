@@ -12,6 +12,9 @@ contract Proxy {
 
     address[] public implementations;
 
+    /// @notice maps a function signature to a set of checks
+    mapping(bytes4 => CheckCall[]) public functionsChecks;
+
     error RevertDelegation(bool success, bytes revertData, bytes32 checksHash);
 
     function addImplementation(address implementation, bytes memory data) public {
@@ -20,9 +23,17 @@ contract Proxy {
         implementations.push(implementation);
     }
 
+    function registerCheck(
+        bytes4 functionSignature,
+        address targetContract,
+        bytes memory data
+    ) external {
+        functionsChecks[functionSignature].push(CheckCall(targetContract, data));
+    }
+
     function delegateAndCheck(
         address _implementation,
-        bytes memory data,
+        bytes calldata data,
         CheckCall[] memory checks,
         bool revertExecution
     )
@@ -74,6 +85,10 @@ contract Proxy {
         return _parseDelegatedCall(success, returnData);
     }
 
+    function getChecks(bytes4 signature) external view returns (CheckCall[] memory) {
+        return functionsChecks[signature];
+    }
+
     /**
      * @dev Delegates the current call to all registered implementations
      * and persists state only on the last call
@@ -87,8 +102,11 @@ contract Proxy {
         bytes memory returnData;
         bytes32 checksHash;
 
-        // TODO: get checks
-        CheckCall[] memory checks = new CheckCall[](0);
+        // FIXME: might be a simpler way with abi.decode or so
+        bytes4 sig = (msg.data[0] << 24) | (msg.data[1] << 16) | (msg.data[2] << 8) | msg.data[3];
+        require(sig > 0, "signature parse failed");
+
+        CheckCall[] memory checks = functionsChecks[sig];
 
         for (uint256 i = 0; i < len; i++) {
             address implementation = implementations[i];
