@@ -35,7 +35,7 @@ contract Proxy {
     /// | argType |  argData
     ///
     /// and argData should be encoded as follow
-    /// argType == 0 (Static) -> number of bytes and raw data for argument
+    /// argType == 0 (Static) -> number of bytes (uint16) and raw data for argument
     /// argType == 1 (CallData) -> offset and length of data in callData as uint16 (e.g. 0x000400a0 will be the first address in the call data)
     /// argType == 2 (Env) -> single byte corresponding to the following
     /// * 1  -> block.coinbase (address): current block miner’s address
@@ -86,11 +86,7 @@ contract Proxy {
         CheckCall[] storage calls = functionsChecks[functionSignature];
         CheckCall storage checkCall = calls.push();
         checkCall.targetContract = targetContract;
-        // checkCall.signature = targetSignature;
         checkCall.data = data;
-        // for (uint256 i = 0; i < args.length; i++) {
-        //     checkCall.arguments.push(args[i]);
-        // }
     }
 
     function delegateAndCheck(

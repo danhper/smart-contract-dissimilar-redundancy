@@ -43,8 +43,22 @@ def make_args(accounts, raw_proxy, token_proxy, last_value=None):
         raw_proxy.implementations(0),
         token_proxy.transfer.encode_input(accounts[2], TRANSFERED_AMOUNT),
         [
-            (token_proxy, token_proxy.balanceOf(accounts[0])),
-            (token_proxy, token_proxy.balanceOf(accounts[2])),
+            (
+                token_proxy,
+                _encode_args(
+                    token_proxy,
+                    "balanceOf",
+                    [(ArgumentType.Static, ("address", accounts[0].address))],
+                ),
+            ),
+            (
+                token_proxy,
+                _encode_args(
+                    token_proxy,
+                    "balanceOf",
+                    [(ArgumentType.Static, ("address", accounts[2].address))],
+                ),
+            ),
         ],
     ]
     if last_value is not None:
