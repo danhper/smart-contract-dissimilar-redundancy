@@ -2,23 +2,63 @@
 
 // NOTE: taken from Openzeppelin Proxy contract
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.9;
+
+import "./vendor/BytesLib.sol";
 
 contract Proxy {
+    uint8 constant STATIC_ARG = 0;
+    uint8 constant CALL_DATA_ARG = 1;
+    uint8 constant ENV_ARG = 2;
+
+    uint8 constant ENV_CHAINID = 0;
+    uint8 constant ENV_COINBASE = 1;
+    uint8 constant ENV_DIFFICULTY = 2;
+    uint8 constant ENV_GASLIMIT = 3;
+    uint8 constant ENV_NUMBER = 4;
+    uint8 constant ENV_TIMESTAMP = 5;
+    uint8 constant ENV_GASLEFT = 6;
+    uint8 constant ENV_SENDER = 7;
+    uint8 constant ENV_SIG = 8;
+    uint8 constant ENV_VALUE = 9;
+    uint8 constant ENV_GASPRICE = 10;
+    uint8 constant ENV_ORIGIN = 11;
+
+    /// @dev data should be encoded as follow
+    ///
+    /// |  0 - 4    |       5     |      6 --
+    /// | signature |  args count |    args
+    ///
+    /// each arg should be encoded as follow
+    ///
+    /// |    0    |   1 -
+    /// | argType |  argData
+    ///
+    /// and argData should be encoded as follow
+    /// argType == 0 (Static) -> number of bytes and raw data for argument
+    /// argType == 1 (CallData) -> offset and length of data in callData as uint16 (e.g. 0x000400a0 will be the first address in the call data)
+    /// argType == 2 (Env) -> single byte corresponding to the following
+    /// * 1  -> block.coinbase (address): current block miner’s address
+    /// * 2  -> block.difficulty (uint): current block difficulty
+    /// * 3  -> block.gaslimit (uint): current block gaslimit
+    /// * 4  -> block.number (uint): current block number
+    /// * 5  -> block.timestamp (uint): current block timestamp as seconds since unix epoch
+    /// * 6  -> gasleft() returns (uint256): remaining gas
+    /// * 7  -> msg.gas (uint): remaining gas - deprecated in version 0.4.21 and to be replaced by gasleft()
+    /// * 8  -> msg.sender (address): sender of the message (current call)
+    /// * 9  -> msg.sig (bytes4): first four bytes of the calldata (i.e. function identifier)
+    /// * 10 -> msg.value (uint): number of wei sent with the message
+    /// * 11 -> now (uint): current block timestamp (alias for block.timestamp)
+    /// * 12 -> tx.gasprice (uint): gas price of the transaction
+    /// * 13 -> tx.origin (address): sender of the transaction (full call chain)
     struct CheckCall {
         address targetContract;
         bytes data;
-        // signature
-        // arguments
-        //   static argument
-        //   argument depending on calldata
-        //   argument depending on block data
-        //   argument depending on tx data
     }
 
     uint256[100] __gap;
 
-    address[] implementations;
+    address[] public implementations;
 
     /// @notice maps a function signature to a set of checks
     mapping(bytes4 => CheckCall[]) public functionsChecks;
@@ -40,9 +80,17 @@ contract Proxy {
     function registerCheck(
         bytes4 functionSignature,
         address targetContract,
-        bytes memory data
+        // bytes4 targetSignature,
+        bytes calldata data
     ) external {
-        functionsChecks[functionSignature].push(CheckCall(targetContract, data));
+        CheckCall[] storage calls = functionsChecks[functionSignature];
+        CheckCall storage checkCall = calls.push();
+        checkCall.targetContract = targetContract;
+        // checkCall.signature = targetSignature;
+        checkCall.data = data;
+        // for (uint256 i = 0; i < args.length; i++) {
+        //     checkCall.arguments.push(args[i]);
+        // }
     }
 
     function delegateAndCheck(
@@ -62,9 +110,9 @@ contract Proxy {
         checksHash = keccak256(abi.encodePacked(success, returnData));
         for (uint256 i = 0; i < checks.length; i++) {
             CheckCall memory checkCall = checks[i];
-            (bool checkSuccess, bytes memory checkData) = checkCall.targetContract.call(
-                checkCall.data
-            );
+            bytes memory callData = _encodeCalldata(checkCall, data);
+            (bool checkSuccess, bytes memory checkData) = checkCall.targetContract.call(callData);
+            require(checkSuccess, "check failed");
             checksHash = keccak256(abi.encodePacked(checksHash, checkSuccess, checkData));
         }
         if (revertExecution) {
@@ -214,6 +262,53 @@ contract Proxy {
         );
 
         return (delegatedSuccess, delegatedreturnData, checksHash);
+    }
+
+    function _encodeCalldata(CheckCall memory check, bytes calldata msgData)
+        internal
+        view
+        returns (bytes memory result)
+    {
+        result = BytesLib.slice(check.data, 0, 4);
+        uint8 argsCount = uint8(check.data[4]);
+        uint256 currentOffset = 5;
+        for (uint256 i = 0; i < argsCount; i++) {
+            uint8 argType = uint8(check.data[currentOffset++]);
+
+            bytes memory arg;
+            if (argType == STATIC_ARG) {
+                uint16 argLength = parseUint16(check.data, currentOffset);
+                arg = BytesLib.slice(check.data, currentOffset + 2, argLength);
+                currentOffset += argLength + 2;
+            } else if (argType == CALL_DATA_ARG) {
+                uint16 offset = parseUint16(check.data, currentOffset);
+                uint16 length = parseUint16(check.data, currentOffset + 2);
+                arg = msgData[offset:offset + length];
+                currentOffset += 4;
+            } else if (argType == ENV_ARG) {
+                uint8 varType = uint8(check.data[currentOffset++]);
+                if (varType == ENV_CHAINID) arg = abi.encode(block.chainid);
+                else if (varType == ENV_COINBASE) arg = abi.encode(block.coinbase);
+                else if (varType == ENV_DIFFICULTY) arg = abi.encode(block.difficulty);
+                else if (varType == ENV_GASLIMIT) arg = abi.encode(block.gaslimit);
+                else if (varType == ENV_NUMBER) arg = abi.encode(block.number);
+                else if (varType == ENV_TIMESTAMP) arg = abi.encode(block.timestamp);
+                else if (varType == ENV_GASLEFT) arg = abi.encode(gasleft());
+                else if (varType == ENV_SENDER) arg = abi.encode(msg.sender);
+                else if (varType == ENV_SIG) arg = abi.encode(msg.sig);
+                else if (varType == ENV_VALUE) arg = abi.encode(msg.value);
+                else if (varType == ENV_GASPRICE) arg = abi.encode(tx.gasprice);
+                else if (varType == ENV_ORIGIN) arg = abi.encode(tx.origin);
+                else revert("unknown environment variable");
+            } else {
+                revert("unknown argument type");
+            }
+            result = BytesLib.concat(result, arg);
+        }
+    }
+
+    function parseUint16(bytes memory data, uint256 offset) internal pure returns (uint16) {
+        return uint16(uint8(data[offset]) << 8) | uint16(uint8(data[offset + 1]));
     }
 
     /**
