@@ -3,7 +3,7 @@ pragma solidity 0.8.9;
 
 import "../interfaces/IERC20.sol";
 
-contract TrivialTokenS is IERC20 {
+contract TrivialTokenBuggy is IERC20 {
     mapping(address => uint256) balances;
     mapping(address => mapping(address => uint256)) allowances;
 
@@ -33,7 +33,7 @@ contract TrivialTokenS is IERC20 {
         uint256 value
     ) external override returns (bool) {
         require(allowances[from][msg.sender] >= value, "not allowed to spend");
-        allowances[from][msg.sender] -= value;
+        // allowances[from][msg.sender] -= value;
         transferInternal(from, to, value);
         return true;
     }

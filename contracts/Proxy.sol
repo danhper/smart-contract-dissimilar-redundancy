@@ -8,9 +8,17 @@ contract Proxy {
     struct CheckCall {
         address targetContract;
         bytes data;
+        // signature
+        // arguments
+        //   static argument
+        //   argument depending on calldata
+        //   argument depending on block data
+        //   argument depending on tx data
     }
 
-    address[] public implementations;
+    uint256[100] __gap;
+
+    address[] implementations;
 
     /// @notice maps a function signature to a set of checks
     mapping(bytes4 => CheckCall[]) public functionsChecks;
@@ -18,9 +26,15 @@ contract Proxy {
     error RevertDelegation(bool success, bytes revertData, bytes32 checksHash);
 
     function addImplementation(address implementation, bytes memory data) public {
-        (bool success, ) = implementation.delegatecall(data);
-        require(success, "initial data call failed");
+        if (data.length > 0) {
+            (bool success, ) = implementation.delegatecall(data);
+            require(success, "initial data call failed");
+        }
         implementations.push(implementation);
+    }
+
+    function allImplementations() external view returns (address[] memory) {
+        return implementations;
     }
 
     function registerCheck(
@@ -97,7 +111,6 @@ contract Proxy {
      * This function does not return to its internall call site, it will return directly to the external caller.
      */
     function _fallback() internal virtual {
-        uint256 len = implementations.length;
         bool success;
         bytes memory returnData;
         bytes32 checksHash;
@@ -110,6 +123,7 @@ contract Proxy {
 
         CheckCall[] memory checks = functionsChecks[sig];
 
+        uint256 len = implementations.length;
         for (uint256 i = 0; i < len; i++) {
             address implementation = implementations[i];
             bool shouldRevert = i != len - 1;

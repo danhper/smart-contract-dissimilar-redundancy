@@ -18,8 +18,8 @@ initialized: bool
 @external
 def initialize(supply: uint256):
     assert not self.initialized, "already initialized"
-    self.balances[msg.sender] = supply
     self.totalSupply = supply
+    self.balances[msg.sender] = supply
     self.initialized = True
 
 @external

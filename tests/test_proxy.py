@@ -1,6 +1,9 @@
-from conftest import INITIAL_SUPPLY
-from eth_abi.abi import decode_single
+from brownie import web3
+import brownie
 from brownie.exceptions import VirtualMachineError
+from eth_abi.abi import decode_single
+
+from conftest import INITIAL_SUPPLY
 
 TRANSFERED_AMOUNT = 2 * 10 ** 18
 
@@ -77,3 +80,37 @@ def test_register_checks(
         {"from": accounts[0]},
     )
     assert len(proxy_trivial_token_v_raw.getChecks(signature)) == 1
+
+
+def test_same_implementation(
+    accounts, proxy_trivial_token_s_raw, proxy_trivial_token_s, TrivialTokenS
+):
+    other_trivial_token_s = accounts[0].deploy(TrivialTokenS)
+    proxy_trivial_token_s_raw.addImplementation(other_trivial_token_s, b"")
+    proxy_trivial_token_s_raw.registerCheck(
+        other_trivial_token_s.signatures["transfer"],
+        proxy_trivial_token_s_raw,
+        other_trivial_token_s.balanceOf.encode_input(accounts[0]),
+    )
+    assert proxy_trivial_token_s.totalSupply() == INITIAL_SUPPLY
+    proxy_trivial_token_s.transfer(accounts[1], 10_000_000)
+    assert proxy_trivial_token_s.balanceOf(accounts[1]) == 10_000_000
+
+
+def test_buggy_implementation(
+    accounts, proxy_trivial_token_s_raw, proxy_trivial_token_s, TrivialTokenBuggy
+):
+    buggy_token = accounts[0].deploy(TrivialTokenBuggy)
+    proxy_trivial_token_s_raw.addImplementation(buggy_token, b"")
+    proxy_trivial_token_s_raw.registerCheck(
+        buggy_token.signatures["transferFrom"],
+        proxy_trivial_token_s_raw,
+        buggy_token.allowance.encode_input(accounts[0], accounts[2]),
+    )
+    assert proxy_trivial_token_s.totalSupply() == INITIAL_SUPPLY
+    proxy_trivial_token_s.approve(accounts[2], 10_000_000, {"from": accounts[0]})
+    with brownie.reverts("all implementations must return the same checks"):  # type: ignore
+        proxy_trivial_token_s.transferFrom(
+            accounts[0], accounts[1], 10_000_000, {"from": accounts[2]}
+        )
+    assert proxy_trivial_token_s.balanceOf(accounts[1]) == 0
