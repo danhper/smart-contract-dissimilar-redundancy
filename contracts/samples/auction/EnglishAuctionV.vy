@@ -12,18 +12,17 @@ highestBid: public(uint256)
 highestBidder: public(address)
 finalized: public(bool)
 
+
 @external
-def __init__(_collection: address, _token_id: uint256, _ends_at: uint256):
+def start(_collection: address, _token_id: uint256, _ends_at: uint256):
+    assert not self.started, "auction already started"
+    ERC721(_collection).transferFrom(msg.sender, self, _token_id)
+    self.started = True
     self.collection = _collection
     self.endsAt = _ends_at
     self.tokenId = _token_id
     self.seller = msg.sender
 
-@external
-def start():
-    assert msg.sender == self.seller, "only seller can start auction"
-    ERC721(self.collection).transferFrom(msg.sender, self, self.tokenId)
-    self.started = True
 
 @external
 @payable

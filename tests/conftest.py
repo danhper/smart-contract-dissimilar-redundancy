@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Optional, TypeVar
 
 import pytest
-from brownie import ZERO_ADDRESS, config, project
+from brownie import config, project
 from brownie.project.main import Project
 
 INITIAL_SUPPLY = 200_000_000 * 10 ** 18
@@ -89,26 +89,27 @@ def nft_collection(admin):
 
 
 @pytest.fixture
-def english_auction_s(alice, EnglishAuctionS, nft_collection):
-    ends_at = int(time.time()) + 3_600
+def alice_nft(nft_collection, alice):
     nft_collection.mint(alice)
     token_id = nft_collection.tokenOfOwnerByIndex(
         alice, nft_collection.balanceOf(alice) - 1
     )
-    auction = alice.deploy(EnglishAuctionS, nft_collection, token_id, ends_at)
-    nft_collection.approve(auction, token_id, {"from": alice})
-    auction.start({"from": alice})
+    return token_id
+
+
+def deploy_auction(Contract, seller, nft_collection, token_id):
+    ends_at = int(time.time()) + 3_600
+    auction = seller.deploy(Contract)
+    nft_collection.approve(auction, token_id, {"from": seller})
+    auction.start(nft_collection, token_id, ends_at, {"from": seller})
     return auction
 
 
 @pytest.fixture
-def english_auction_v(alice, EnglishAuctionV, nft_collection):
-    ends_at = int(time.time()) + 3_600
-    nft_collection.mint(alice)
-    token_id = nft_collection.tokenOfOwnerByIndex(
-        alice, nft_collection.balanceOf(alice) - 1
-    )
-    auction = alice.deploy(EnglishAuctionV, nft_collection, token_id, ends_at)
-    nft_collection.approve(auction, token_id, {"from": alice})
-    auction.start({"from": alice})
-    return auction
+def english_auction_s(alice, EnglishAuctionS, nft_collection, alice_nft):
+    return deploy_auction(EnglishAuctionS, alice, nft_collection, alice_nft)
+
+
+@pytest.fixture
+def english_auction_v(alice, EnglishAuctionV, nft_collection, alice_nft):
+    return deploy_auction(EnglishAuctionV, alice, nft_collection, alice_nft)

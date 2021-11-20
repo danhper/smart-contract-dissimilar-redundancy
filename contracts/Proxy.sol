@@ -180,7 +180,12 @@ contract Proxy {
                     shouldRevert
                 )
             );
-            require(delegateSuccess != shouldRevert, "inconsistent return from delegate");
+            if (!delegateSuccess && !shouldRevert) {
+                revert("delegateCall should have succeeded but failed");
+            } else if (delegateSuccess && shouldRevert) {
+                revert("delegateCall should have failed but succeeded");
+            }
+            // require(delegateSuccess != shouldRevert, "inconsistent return from delegate");
 
             (bool callSuccess, bytes memory callData, bytes32 callChecksHash) = _parseDelegatedCall(
                 delegateSuccess,
