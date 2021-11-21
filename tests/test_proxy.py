@@ -1,8 +1,8 @@
 import brownie
 from brownie.exceptions import VirtualMachineError
-from eth_abi.abi import decode_single, encode_single
+from eth_abi.abi import decode_single
 
-from conftest import INITIAL_SUPPLY, ArgumentType, EnvArg
+from conftest import INITIAL_SUPPLY, ArgumentType, EnvArg, encode_args
 
 TRANSFERED_AMOUNT = 2 * 10 ** 18
 
@@ -18,7 +18,7 @@ def make_args(accounts, raw_proxy, token_proxy, last_value=None):
         [
             (
                 token_proxy,
-                _encode_args(
+                encode_args(
                     token_proxy,
                     "balanceOf",
                     [(ArgumentType.Static, ("address", accounts[0].address))],
@@ -26,7 +26,7 @@ def make_args(accounts, raw_proxy, token_proxy, last_value=None):
             ),
             (
                 token_proxy,
-                _encode_args(
+                encode_args(
                     token_proxy,
                     "balanceOf",
                     [(ArgumentType.Static, ("address", accounts[2].address))],
@@ -87,14 +87,14 @@ def test_register_checks(accounts, TrivialTokenV, proxy_trivial_token_v_raw):
     proxy_trivial_token_v_raw.registerCheck(
         signature,
         proxy_trivial_token_v_raw.address,
-        _encode_args(TrivialTokenV, "totalSupply", []),
+        encode_args(TrivialTokenV, "totalSupply", []),
         {"from": accounts[0]},
     )
     assert len(proxy_trivial_token_v_raw.getChecks(signature)) == 1
     proxy_trivial_token_v_raw.registerCheck(
         signature,
         proxy_trivial_token_v_raw.address,
-        _encode_args(
+        encode_args(
             TrivialTokenV,
             "balanceOf",
             [(ArgumentType.Static, ("address", accounts[0].address))],
@@ -112,12 +112,12 @@ def test_same_implementation(
     proxy_trivial_token_s_raw.registerCheck(
         other_trivial_token_s.signatures["transfer"],
         proxy_trivial_token_s_raw,
-        _encode_args(TrivialTokenS, "totalSupply", []),
+        encode_args(TrivialTokenS, "totalSupply", []),
     )
     proxy_trivial_token_s_raw.registerCheck(
         other_trivial_token_s.signatures["transfer"],
         proxy_trivial_token_s_raw,
-        _encode_args(
+        encode_args(
             TrivialTokenS,
             "balanceOf",
             [(ArgumentType.Static, ("address", accounts[0].address))],
@@ -137,7 +137,7 @@ def test_buggy_implementation(
     proxy_trivial_token_s_raw.registerCheck(
         buggy_token.signatures["transferFrom"],
         proxy_trivial_token_s_raw,
-        _encode_args(
+        encode_args(
             TrivialTokenBuggy,
             "allowance",
             [
@@ -156,20 +156,3 @@ def test_buggy_implementation(
             accounts[0], accounts[1], 10_000_000, {"from": accounts[2]}
         )
     assert proxy_trivial_token_s.balanceOf(accounts[1]) == 0
-
-
-def _encode_args(contract, func_name, arguments):
-    data = bytes.fromhex(contract.signatures[func_name][2:])
-    data += len(arguments).to_bytes(1, byteorder="big")
-    for arg_type, arg_data in arguments:
-        data += arg_type.to_bytes(1, byteorder="big")
-        if arg_type == ArgumentType.Static:
-            arg_data = encode_single(arg_data[0], arg_data[1])
-            data += len(arg_data).to_bytes(2, byteorder="big")
-            data += arg_data
-        elif arg_type == ArgumentType.CallData:
-            data += arg_data[0].to_bytes(2, byteorder="big")
-            data += arg_data[1].to_bytes(2, byteorder="big")
-        elif arg_type == ArgumentType.Env:
-            data += arg_data.to_bytes(1, byteorder="big")
-    return data

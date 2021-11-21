@@ -33,6 +33,7 @@ contract EnglishAuctionS is IEnglishAuction {
     function bid() external payable override {
         require(started, "auction not started");
         require(endsAt > block.timestamp, "auction has ended");
+        require(msg.value > 0, "bid must more than 0");
         require(msg.value > highestBid, "bid is too low");
 
         if (highestBid > 0) {

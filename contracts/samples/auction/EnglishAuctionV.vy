@@ -29,7 +29,8 @@ def start(_collection: address, _token_id: uint256, _ends_at: uint256):
 def bid(): 
     assert self.started, "auction not started"
     assert self.endsAt > block.timestamp, "auction has ended"
-    assert msg.value > self.highestBid, "bid is too low"
+    assert msg.value > 0, "bid must more than 0"
+    assert msg.value >= self.highestBid, "bid is too low"
 
     if self.highestBid > 0:
         # reimburse previous highest bidder
@@ -49,8 +50,8 @@ def finalize():
 
         # pay seller
         send(self.seller, self.highestBid)
-    else:
-        # transfer ownership back to seller
-        ERC721(self.collection).transferFrom(self, self.seller, self.tokenId)
+    # else:
+    #     # transfer ownership back to seller
+    #     ERC721(self.collection).transferFrom(self, self.seller, self.tokenId)
 
     self.finalized = True
