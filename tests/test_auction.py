@@ -19,7 +19,7 @@ def auction_proxy(
     proxy = alice.deploy(Proxy)
 
     proxy.addImplementation(auction_s.address, b"")
-    # proxy.addImplementation(auction_v.address, b"")
+    proxy.addImplementation(auction_v.address, b"")
 
     ends_at = int(time.time()) + 3_600
     auction = interface.IEnglishAuction(proxy)
@@ -30,31 +30,15 @@ def auction_proxy(
     return auction
 
 
-def test_bid_s(bob, english_auction_s):
-    assert english_auction_s.highestBid() == 0
-    assert english_auction_s.highestBidder() == ZERO_ADDRESS
+@pytest.mark.parametrize(
+    "auction_name", ["english_auction_s", "english_auction_v", "auction_proxy"]
+)
+def test_bid(request, auction_name, bob):
+    auction = request.getfixturevalue(auction_name)
+    assert auction.highestBid() == 0
+    assert auction.highestBidder() == ZERO_ADDRESS
 
-    english_auction_s.bid({"from": bob, "value": 10 ** 18})
+    auction.bid({"from": bob, "value": 10 ** 18})
 
-    assert english_auction_s.highestBid() == 10 ** 18
-    assert english_auction_s.highestBidder() == bob
-
-
-def test_bid_v(bob, english_auction_v):
-    assert english_auction_v.highestBid() == 0
-    assert english_auction_v.highestBidder() == ZERO_ADDRESS
-
-    english_auction_v.bid({"from": bob, "value": 10 ** 18})
-
-    assert english_auction_v.highestBid() == 10 ** 18
-    assert english_auction_v.highestBidder() == bob
-
-
-def test_bid_proxy(bob, auction_proxy):
-    assert auction_proxy.highestBid() == 0
-    assert auction_proxy.highestBidder() == ZERO_ADDRESS
-
-    auction_proxy.bid({"from": bob, "value": 10 ** 18})
-
-    assert auction_proxy.highestBid() == 10 ** 18
-    assert auction_proxy.highestBidder() == bob
+    assert auction.highestBid() == 10 ** 18
+    assert auction.highestBidder() == bob

@@ -1,37 +1,10 @@
 import brownie
-import pytest
 from brownie.exceptions import VirtualMachineError
 from eth_abi.abi import decode_single, encode_single
 
-from conftest import INITIAL_SUPPLY
+from conftest import INITIAL_SUPPLY, ArgumentType, EnvArg
 
 TRANSFERED_AMOUNT = 2 * 10 ** 18
-
-
-class ArgumentType:
-    Static = 0
-    CallData = 1
-    Env = 2
-
-
-class EnvArg:
-    Chainid = 0
-    Coinbase = 1
-    Difficulty = 2
-    Gaslimit = 3
-    Number = 4
-    Timestamp = 5
-    Gasleft = 6
-    Sender = 7
-    Sig = 8
-    Value = 9
-    Gasprice = 10
-    Origin = 11
-
-
-@pytest.fixture(autouse=True)
-def isolation_setup(fn_isolation):
-    pass
 
 
 def test_proxy(proxy_trivial_token_v):

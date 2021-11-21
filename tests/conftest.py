@@ -13,6 +13,32 @@ BROWNIE_PACKAGES_PATH = Path.home() / ".brownie" / "packages"
 T = TypeVar("T")
 
 
+class ArgumentType:
+    Static = 0
+    CallData = 1
+    Env = 2
+
+
+class EnvArg:
+    Chainid = 0
+    Coinbase = 1
+    Difficulty = 2
+    Gaslimit = 3
+    Number = 4
+    Timestamp = 5
+    Gasleft = 6
+    Sender = 7
+    Sig = 8
+    Value = 9
+    Gasprice = 10
+    Origin = 11
+
+
+@pytest.fixture(autouse=True)
+def isolation_setup(fn_isolation):
+    pass
+
+
 def find(
     predicate: Callable[[T], bool], iterable: Iterable[T], message: Optional[str] = None
 ) -> T:
