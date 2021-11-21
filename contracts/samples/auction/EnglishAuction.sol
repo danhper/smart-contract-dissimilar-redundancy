@@ -3,36 +3,37 @@ pragma solidity 0.8.9;
 
 import "OpenZeppelin/openzeppelin-contracts@4.3.3/contracts/token/ERC721/IERC721.sol";
 
-contract EnglishAuctionS {
-    address public collection;
-    uint256 public tokenId;
-    bool public started;
-    uint256 public endsAt;
-    address public seller;
-    uint256 public highestBid;
-    address public highestBidder;
-    bool public finalized;
+import "../../../interfaces/IEnglishAuction.sol";
 
-    constructor(
+contract EnglishAuctionS is IEnglishAuction {
+    address public override collection;
+    uint256 public override tokenId;
+    bool public override started;
+    uint256 public override endsAt;
+    address public override seller;
+    uint256 public override highestBid;
+    address public override highestBidder;
+    bool public override finalized;
+
+    function start(
         address _collection,
         uint256 _tokenId,
-        uint64 _endsAt
-    ) {
-        collection = _collection;
-        tokenId = _tokenId;
+        uint256 _endsAt
+    ) external override {
+        require(!started, "auction already started");
+
+        IERC721(_collection).transferFrom(msg.sender, address(this), _tokenId);
+
         seller = msg.sender;
+        collection = _collection;
+        started = true;
         endsAt = _endsAt;
     }
 
-    function start() external {
-        require(msg.sender == seller, "only seller can start auction");
-        IERC721(collection).transferFrom(msg.sender, address(this), tokenId);
-        started = true;
-    }
-
-    function bid() external payable {
+    function bid() external payable override {
         require(started, "auction not started");
         require(endsAt > block.timestamp, "auction has ended");
+        require(msg.value > 0, "bid must more than 0");
         require(msg.value > highestBid, "bid is too low");
 
         if (highestBid > 0) {
@@ -44,7 +45,7 @@ contract EnglishAuctionS {
         highestBidder = msg.sender;
     }
 
-    function finalize() external {
+    function finalize() external override {
         require(block.timestamp > endsAt, "auction has not ended");
         require(!finalized, "auction has already been finalized");
 

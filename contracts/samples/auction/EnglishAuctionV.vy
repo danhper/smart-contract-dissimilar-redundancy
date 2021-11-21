@@ -12,25 +12,25 @@ highestBid: public(uint256)
 highestBidder: public(address)
 finalized: public(bool)
 
+
 @external
-def __init__(_collection: address, _token_id: uint256, _ends_at: uint256):
+def start(_collection: address, _token_id: uint256, _ends_at: uint256):
+    assert not self.started, "auction already started"
+    ERC721(_collection).transferFrom(msg.sender, self, _token_id)
+    self.started = True
     self.collection = _collection
     self.endsAt = _ends_at
     self.tokenId = _token_id
     self.seller = msg.sender
 
-@external
-def start():
-    assert msg.sender == self.seller, "only seller can start auction"
-    ERC721(self.collection).transferFrom(msg.sender, self, self.tokenId)
-    self.started = True
 
 @external
 @payable
 def bid(): 
     assert self.started, "auction not started"
     assert self.endsAt > block.timestamp, "auction has ended"
-    assert msg.value > self.highestBid, "bid is too low"
+    assert msg.value > 0, "bid must more than 0"
+    assert msg.value >= self.highestBid, "bid is too low"
 
     if self.highestBid > 0:
         # reimburse previous highest bidder
@@ -50,8 +50,8 @@ def finalize():
 
         # pay seller
         send(self.seller, self.highestBid)
-    else:
-        # transfer ownership back to seller
-        ERC721(self.collection).transferFrom(self, self.seller, self.tokenId)
+    # else:
+    #     # transfer ownership back to seller
+    #     ERC721(self.collection).transferFrom(self, self.seller, self.tokenId)
 
     self.finalized = True

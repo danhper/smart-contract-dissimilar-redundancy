@@ -80,7 +80,6 @@ contract Proxy {
     function registerCheck(
         bytes4 functionSignature,
         address targetContract,
-        // bytes4 targetSignature,
         bytes calldata data
     ) external {
         CheckCall[] storage calls = functionsChecks[functionSignature];
@@ -96,6 +95,7 @@ contract Proxy {
         bool revertExecution
     )
         public
+        payable
         returns (
             bool success,
             bytes memory returnData,
@@ -159,13 +159,7 @@ contract Proxy {
         bytes memory returnData;
         bytes32 checksHash;
 
-        // FIXME: might be a simpler way with abi.decode or so
-        bytes4 sig;
-        for (uint256 i = 0; i < 4; i++)
-            sig |= bytes4(uint32(uint8(msg.data[i])) << uint8(24 - i * 8));
-        require(sig > 0, "signature parse failed");
-
-        CheckCall[] memory checks = functionsChecks[sig];
+        CheckCall[] memory checks = functionsChecks[msg.sig];
 
         uint256 len = implementations.length;
         for (uint256 i = 0; i < len; i++) {
@@ -180,7 +174,12 @@ contract Proxy {
                     shouldRevert
                 )
             );
-            require(delegateSuccess != shouldRevert, "inconsistent return from delegate");
+
+            if (!delegateSuccess && !shouldRevert) {
+                revert("delegateCall should have succeeded but failed");
+            } else if (delegateSuccess && shouldRevert) {
+                revert("delegateCall should have failed but succeeded");
+            }
 
             (bool callSuccess, bytes memory callData, bytes32 callChecksHash) = _parseDelegatedCall(
                 delegateSuccess,
