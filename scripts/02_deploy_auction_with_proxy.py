@@ -31,4 +31,6 @@ def main(nft_collection):
 
     nft_collection.approve(auction.address, token_id, {"from": deployer})
 
-    auction.start(nft_collection, token_id, ends_at, {"from": deployer})
+    auction.start(
+        nft_collection, token_id, ends_at, {"from": deployer, "gas_price": 30 * 10 ** 9}
+    )
