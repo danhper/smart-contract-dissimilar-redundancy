@@ -70,7 +70,6 @@ class EnsureConsistent:
         return self
 
     def __exit__(self, exc_type, exc_val, _exc_tb):
-        print(exc_type, exc_val)
         return not (
             exc_type == VirtualMachineError
             and exc_val.revert_msg.startswith("all implementations must")
