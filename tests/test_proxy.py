@@ -2,7 +2,7 @@ import brownie
 from brownie.exceptions import VirtualMachineError
 from eth_abi.abi import decode_single
 
-from conftest import INITIAL_SUPPLY, ArgumentType, EnvArg, encode_args
+from tests.conftest import INITIAL_SUPPLY, ArgumentType, EnvArg, encode_args
 
 TRANSFERED_AMOUNT = 2 * 10 ** 18
 

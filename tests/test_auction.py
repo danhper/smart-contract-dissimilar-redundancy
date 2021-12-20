@@ -7,7 +7,7 @@ from brownie.exceptions import VirtualMachineError
 from brownie.test import given, strategy
 from brownie.test.strategies import _address_strategy as addresses
 
-from conftest import ArgumentType, NftCollection, encode_args
+from tests.conftest import ArgumentType, NftCollection, encode_args
 
 
 # NOTE: workaround to avoid modifying blockchain state when calling `request.getfixturevalue`
