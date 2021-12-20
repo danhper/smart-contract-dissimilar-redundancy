@@ -1,0 +1,30 @@
+{
+  "1337": {
+    "EnglishAuctionS": [
+      "0x2612Af3A521c2df9EAF28422Ca335b04AdF3ac66",
+      "0x67B5656d60a809915323Bf2C40A8bEF15A152e3e",
+      "0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B"
+    ],
+    "EnglishAuctionV": [
+      "0x0E696947A06550DEf604e82C26fd9E493e576337",
+      "0xC89Ce4735882C9F0f0FE26686c53074E09B0D550"
+    ],
+    "Proxy": [
+      "0xD833215cBcc3f914bD1C9ece3EE7BF8B14f841bb"
+    ]
+  },
+  "137": {
+    "EnglishAuctionS": [
+      "0xE575CCb0213393eBFc9258013af1c43e9E416544",
+      "0xdb85f3DB2aA6E5e294485972ABE921be188b6A37"
+    ],
+    "EnglishAuctionV": [
+      "0xEe164319fE07127Efc8fdf8b3e99ea736F8c955E",
+      "0x7E2Afe85D37cFEc8B6b93660E71ccD5D615A1a8b",
+      "0x9FD31161360B5E772f2b9C469D4A35E679273Dbf"
+    ],
+    "Proxy": [
+      "0xAd837BDD116C14aA82311Db7D1879C7cDDCfd283"
+    ]
+  }
+}
